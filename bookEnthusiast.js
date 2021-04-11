@@ -56,6 +56,10 @@ const request = require("request");
 })();
 
 async function directingToGenre(completeGenreLink, browser, genreText){
+    if(!fs.existsSync('./AMAZON')){
+        await fs.mkdirSync('./AMAZON');
+    }
+    
     let newTab = await browser.newPage();
     await newTab.goto(completeGenreLink);
     let genrePath = `./AMAZON/${genreText}`;
@@ -80,6 +84,7 @@ async function directingToGenre(completeGenreLink, browser, genreText){
 }
 
 async function processingBooks(completeBookLink, browser, genrePath){
+    
     let newTab = await browser.newPage();
     await newTab.goto(completeBookLink);
     let bookDes = [];
@@ -127,7 +132,6 @@ async function processingBooks(completeBookLink, browser, genrePath){
         return elem.innerText;
     }, bookRatingsTag);
     
-    
     let bookObj = {
         Title: bookTitle,
         Author: bookAuthor,
@@ -151,11 +155,7 @@ async function booknameFolder(bookTitle, genrePath, stringifiedData){
     let bookFolderPath = `${genrePath}/${bookTitle}`;
     console.log(bookTitle);
     if(!fs.existsSync(bookFolderPath)){
-        
-    
-        await fs.promises.mkdir(bookFolderPath);
-       
-        
+        await fs.promises.mkdir(bookFolderPath);        
     }
 
     await createJSON(bookTitle, bookFolderPath, stringifiedData);
