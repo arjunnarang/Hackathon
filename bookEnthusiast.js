@@ -8,6 +8,7 @@ const request = require("request");
         headless: false,
         defaultViewport: null,
         args: ["-start-maximized"],
+        executablePath: 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
 
     });
     let allPages = await browser.pages();
@@ -29,12 +30,43 @@ const request = require("request");
     
     
     
+    
+    
+    if(!fs.existsSync('./AMAZON')){
+        await fs.mkdirSync('./AMAZON');
+    }
     await tab.waitForTimeout(10000);
-    
     await tab.waitForSelector('[type="checkbox"]');
-    let langEnglish = await tab.$('[type="checkbox"]');
-    await langEnglish.click();
+    let langTags = await tab.$$('[type="checkbox"]');
     
+    for(let i = 0; i<6; i++){
+        let langText = await tab.evaluate(function(elem){
+            return elem.innerText;
+        }, langTags[i]);
+
+        await langWise(browser, tab, langTags[i], langText);
+    }
+    
+    
+    tab.close();
+    console.log("All of the books are stored in AMAZON folder...")
+    browser.close();
+    
+})();
+
+async function langWise(browser, tab, langTag, langText){
+    
+    await tab.evaluate(function(elem){
+        return elem.click();
+    }, langTag);
+
+    
+    let langFolderPath = `./AMAZON/${langText}`;
+    
+    if(!fs.existsSync(langFolderPath)){
+        await fs.mkdirSync(langFolderPath);
+    }
+
     await tab.waitForSelector('#departments ul .a-spacing-micro.s-navigation-indent-2 a') ; 
     let genre = await tab.$$('#departments ul .a-spacing-micro.s-navigation-indent-2 a');
     for(let i = 0; i<5; i++){
@@ -46,23 +78,22 @@ const request = require("request");
         }, genre[i]);
         genreText = genreText.trim()
         completeGenreLink = "https://www.amazon.in" + genreLink
-        await directingToGenre(completeGenreLink, browser, genreText);
+        await directingToGenre(completeGenreLink, browser, genreText, langFolderPath);
     }
-    
-    tab.close();
-    console.log("All of the books are stored in AMAZON folder...")
-    browser.close();
-    
-})();
 
-async function directingToGenre(completeGenreLink, browser, genreText){
-    if(!fs.existsSync('./AMAZON')){
-        await fs.mkdirSync('./AMAZON');
-    }
+    await tab.evaluate(function(elem){
+        return elem.click();
+    }, langTag);
+
+}
+
+
+async function directingToGenre(completeGenreLink, browser, genreText, langFolderPath){
+    
     
     let newTab = await browser.newPage();
     await newTab.goto(completeGenreLink);
-    let genrePath = `./AMAZON/${genreText}`;
+    let genrePath = langFolderPath + `${genreText}`;
     if(!fs.existsSync(genrePath)){
         fs.mkdirSync(genrePath);
     }
