@@ -8,7 +8,7 @@ const request = require("request");
         headless: false,
         defaultViewport: null,
         args: ["-start-maximized"],
-        executablePath: 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+        // executablePath: 'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
 
     });
     let allPages = await browser.pages();
@@ -36,15 +36,15 @@ const request = require("request");
         await fs.mkdirSync('./AMAZON');
     }
     await tab.waitForTimeout(10000);
-    await tab.waitForSelector('[type="checkbox"]');
-    let langTags = await tab.$$('[type="checkbox"]');
+    await tab.waitForSelector('.a-list-item a');
+    let langTags = await tab.$$('.a-list-item a');
     
-    for(let i = 0; i<6; i++){
+    for(let i = 3; i<9; i++){
         let langText = await tab.evaluate(function(elem){
             return elem.innerText;
         }, langTags[i]);
-
-        await langWise(browser, tab, langTags[i], langText);
+        console.log(langText);
+        await langWise(browser, tab, langTags[i], langText, i);
     }
     
     
@@ -54,11 +54,29 @@ const request = require("request");
     
 })();
 
-async function langWise(browser, tab, langTag, langText){
+async function langWise(browser, tab, langTag, langText, i){
     
-    await tab.evaluate(function(elem){
-        return elem.click();
+    let langLink = await tab.evaluate(function(elem){
+        return elem.getAttribute('href');
     }, langTag);
+    let completeLangLink = "https://www.amazon.in" + langLink;
+    let newTab = await browser.newPage();
+
+    await newTab.goto(completeLangLink);
+
+
+    // await newTab.waitForSelector('.a-checkbox.a-checkbox-fancy.s-navigation-checkbox.aok-float-left');
+    // let allLangTags = await newTab.$$('.a-checkbox.a-checkbox-fancy.s-navigation-checkbox.aok-float-left');
+    // await newTab.evaluate(function(elem){
+    //     return elem.click();
+
+    // }, allLangTags[i]);
+
+
+    
+    // await tab.evaluate(function(elem){
+    //     return elem.click();
+    // }, langTag);
 
     
     let langFolderPath = `./AMAZON/${langText}`;
@@ -67,23 +85,21 @@ async function langWise(browser, tab, langTag, langText){
         await fs.mkdirSync(langFolderPath);
     }
 
-    await tab.waitForSelector('#departments ul .a-spacing-micro.s-navigation-indent-2 a') ; 
-    let genre = await tab.$$('#departments ul .a-spacing-micro.s-navigation-indent-2 a');
+    await newTab.waitForSelector('#departments ul .a-spacing-micro.s-navigation-indent-2 a') ; 
+    let genre = await newTab.$$('#departments ul .a-spacing-micro.s-navigation-indent-2 a');
     for(let i = 0; i<5; i++){
-        let genreLink =  await tab.evaluate(function(elem){
+        let genreLink =  await newTab.evaluate(function(elem){
             return elem.getAttribute('href');
         }, genre[i]);
-        let genreText = await tab.evaluate(function(elem){
+        let genreText = await newTab.evaluate(function(elem){
             return elem.text
         }, genre[i]);
         genreText = genreText.trim()
         completeGenreLink = "https://www.amazon.in" + genreLink
         await directingToGenre(completeGenreLink, browser, genreText, langFolderPath);
     }
-
-    await tab.evaluate(function(elem){
-        return elem.click();
-    }, langTag);
+    
+    await newTab.close();
 
 }
 
@@ -93,7 +109,7 @@ async function directingToGenre(completeGenreLink, browser, genreText, langFolde
     
     let newTab = await browser.newPage();
     await newTab.goto(completeGenreLink);
-    let genrePath = langFolderPath + `${genreText}`;
+    let genrePath = langFolderPath + `/${genreText}`;
     if(!fs.existsSync(genrePath)){
         fs.mkdirSync(genrePath);
     }
@@ -118,6 +134,7 @@ async function processingBooks(completeBookLink, browser, genrePath){
     
     let newTab = await browser.newPage();
     await newTab.goto(completeBookLink);
+    await newTab.waitForTimeout(13000);
     let bookDes = [];
     
     await newTab.waitForSelector('#productTitle');
@@ -143,10 +160,15 @@ async function processingBooks(completeBookLink, browser, genrePath){
 
     await newTab.waitForSelector('.a-button.a-spacing-mini.a-button-toggle.format');
     let bookPriceAllTags = await newTab.$$('.a-button.a-spacing-mini.a-button-toggle.format');
+    let kindlePriceTag = await newTab.$('#kindle-price')
+    let kindlePrice = await newTab.evaluate(function(elem){
+        return elem.innerText;
+    }, kindlePriceTag);
 
     let bookPrices = [];
     let bookPricesObj = {};
-    for(let i = 0; i<bookPriceAllTags.length; i++){
+    bookPricesObj[`Price 1`] = "kindle price without unlimited membership " + kindlePrice;
+    for(let i = 1; i<bookPriceAllTags.length; i++){
         let bookPrice = await newTab.evaluate(function(elem){
             return elem.innerText;
         }, bookPriceAllTags[i]);
@@ -156,12 +178,19 @@ async function processingBooks(completeBookLink, browser, genrePath){
     }
     
     bookPrices.push(bookPricesObj);
+    let bookRatings = "no ratings"
+    try{
+        await newTab.waitForSelector('[data-hook="rating-out-of-text"]');
+        let bookRatingsTag = await newTab.$('[data-hook="rating-out-of-text"]');
+        bookRatings = await newTab.evaluate(function(elem){
+            return elem.innerText;
+        }, bookRatingsTag);
+    }catch(error){
+        if(error){
+            bookRatings = "no ratings!";
+        }
+    }
     
-    await newTab.waitForSelector('[data-hook="rating-out-of-text"]');
-    let bookRatingsTag = await newTab.$('[data-hook="rating-out-of-text"]');
-    let bookRatings = await newTab.evaluate(function(elem){
-        return elem.innerText;
-    }, bookRatingsTag);
     
     let bookObj = {
         Title: bookTitle,
